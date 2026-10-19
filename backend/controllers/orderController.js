@@ -200,4 +200,125 @@ const getMyOrders = async (req, res, next) => {
     return next(error);
   }
 };
-module.exports = { createOrder, getMyOrders };
+
+
+
+
+
+
+
+
+const cancelOrder = async (req, res, next) => {
+  let session;
+
+  try {
+    const { orderId } = req.params;
+
+    if (!mongoose.isValidObjectId(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID.",
+      });
+    }
+
+    session = await mongoose.startSession();
+
+    let cancelledOrder;
+
+    await session.withTransaction(async () => {
+      // Only the order owner can cancel it.
+      const order = await Order.findOne({
+        _id: orderId,
+        user: req.user._id,
+      }).session(session);
+
+      if (!order) {
+        const error = new Error("Order not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (order.orderStatus === "Cancelled") {
+        const error = new Error("This order has already been cancelled.");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      if (
+        ["Shipped", "Delivered"].includes(order.orderStatus)
+      ) {
+        const error = new Error(
+          "Orders cannot be cancelled after shipping."
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Paid orders need refund handling before cancellation.
+      if (order.paymentStatus === "paid") {
+        const error = new Error(
+          "This paid order requires refund processing before cancellation."
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      // Restore stock within the same transaction as cancellation.
+      for (const item of order.items) {
+        const product = await Product.findByIdAndUpdate(
+          item.product,
+          {
+            $inc: { stock: item.quantity },
+          },
+          {
+            new: true,
+            session,
+          }
+        );
+
+        if (!product) {
+          const error = new Error(
+            "A product from this order no longer exists. Contact support."
+          );
+          error.statusCode = 409;
+          throw error;
+        }
+      }
+
+      order.orderStatus = "Cancelled";
+      order.cancelledAt = new Date();
+
+      await order.save({ session });
+
+      cancelledOrder = order;
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Order cancelled successfully. Stock has been restored.",
+      order: cancelledOrder,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof mongoose.Error.ValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return next(error);
+  } finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+};
+
+module.exports = { createOrder, getMyOrders,cancelOrder };

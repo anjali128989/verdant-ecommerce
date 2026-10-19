@@ -1,6 +1,6 @@
 
 const express = require("express");
-const { createOrder , getMyOrders,} = require("../controllers/orderController");
+const { createOrder , getMyOrders, cancelOrder,} = require("../controllers/orderController");
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -8,5 +8,5 @@ const router = express.Router();
 router.use(protect);
 router.get("/my-orders", getMyOrders);
 router.post("/", createOrder);
-
+router.delete("/:orderId", cancelOrder);
 module.exports = router;
