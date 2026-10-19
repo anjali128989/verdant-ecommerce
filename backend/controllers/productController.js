@@ -1,5 +1,9 @@
 const mongoose = require("mongoose");
 const Product = require("../models/Product");
+const {
+  createProductSchema,
+  updateProductSchema,
+} = require("../utils/productValidators");
 
 // GET /api/products
 // Supports search, category, price range, sorting and pagination.
@@ -188,7 +192,172 @@ const getProductById = async (req, res, next) => {
   }
 };
 
+
+
+// POST /api/products — Create a product (admin only)
+const createProduct = async (req, res, next) => {
+  try {
+    const { error, value } = createProductSchema.validate(req.body, {
+      abortEarly: false,
+      convert: true,
+    });
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: "Product validation failed.",
+        errors: error.details.map((detail) => detail.message),
+      });
+    }
+
+    const existingProduct = await Product.findOne({
+      slug: value.slug,
+    });
+
+    if (existingProduct) {
+      return res.status(409).json({
+        success: false,
+        message: "A product with this slug already exists.",
+      });
+    }
+
+    const product = await Product.create(value);
+
+    return res.status(201).json({
+      success: true,
+      message: "Product created successfully.",
+      product,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "A product with this slug already exists.",
+      });
+    }
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Product validation failed.",
+        errors: Object.values(error.errors).map((item) => item.message),
+      });
+    }
+
+    return next(error);
+  }
+};
+
+
+
+
+const updateProduct = async (req, res, next) => {
+  try {
+    const mongoose = require("mongoose");
+    const Product = require("../models/Product");
+    const { updateProductSchema } = require("../utils/productValidators");
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID.",
+      });
+    }
+
+    const { error, value } = updateProductSchema.validate(req.body, {
+      abortEarly: false,
+      convert: true,
+    });
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details.map((item) => item.message).join(" "),
+      });
+    }
+
+    const product = await Product.findById(req.params.id);
+
+    if (!product || !product.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    const effectivePrice = value.price ?? product.price;
+    const effectiveDiscount =
+      Object.prototype.hasOwnProperty.call(value, "discountPrice")
+        ? value.discountPrice
+        : product.discountPrice;
+
+    if (
+      effectiveDiscount != null &&
+      effectiveDiscount >= effectivePrice
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Discount price must be lower than the regular price.",
+      });
+    }
+
+    Object.assign(product, value);
+    await product.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Product updated successfully.",
+      product,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "A product with this slug already exists.",
+      });
+    }
+
+    return next(error);
+  }
+};
+
+const deleteProduct = async (req, res, next) => {
+  try {
+    const mongoose = require("mongoose");
+    const Product = require("../models/Product");
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID.",
+      });
+    }
+
+    const product = await Product.findById(req.params.id);
+
+    if (!product || !product.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+    product.isActive = false;
+    await product.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Product deactivated successfully.",
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getProducts,
   getProductById,
+  createProduct,
+   updateProduct,
+  deleteProduct,
 };
