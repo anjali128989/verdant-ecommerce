@@ -4,6 +4,8 @@ import { Routes, Route, Outlet } from "react-router-dom";
 import { useDispatch } from "react-redux";
 
 import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import Home from "./pages/Home";
 import Shop from "./pages/Shop";
 import ProductDetails from "./pages/ProductDetails";
@@ -14,8 +16,17 @@ import NotFound from "./pages/NotFound";
 
 import { getCurrentUser } from "./api/authApi";
 import { getCart } from "./api/cartApi";
-import { setUser, setAuthLoading, clearUser } from "./redux/authSlice";
-import { setCart, clearCart } from "./redux/cartSlice";
+
+import {
+  setUser,
+  setAuthLoading,
+  clearUser,
+} from "./redux/authSlice";
+
+import {
+  setCart,
+  clearCart,
+} from "./redux/cartSlice";
 
 import "./App.css";
 
@@ -37,8 +48,9 @@ export default function App() {
     let cancelled = false;
 
     async function restoreSession() {
+      dispatch(setAuthLoading(true));
+
       try {
-        // Check whether the browser still has a valid login session.
         const data = await getCurrentUser();
 
         if (cancelled) return;
@@ -49,10 +61,8 @@ export default function App() {
           return;
         }
 
-        // Restore the signed-in user.
         dispatch(setUser(data.user));
 
-        // Load the latest cart from the backend.
         try {
           const cart = await getCart();
 
@@ -63,19 +73,16 @@ export default function App() {
           if (!cancelled) {
             console.error(
               "Unable to restore cart:",
-              cartError.response?.data?.message ||
-                cartError.message
+              cartError.response?.data?.message || cartError.message
             );
           }
         }
       } catch (error) {
         if (cancelled) return;
 
-        // No valid session: show the signed-out state.
         dispatch(clearUser());
         dispatch(clearCart());
 
-        // A 401 is expected for a logged-out visitor.
         if (error.response?.status !== 401) {
           console.error(
             "Unable to restore session:",
@@ -101,13 +108,16 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/shop" element={<Shop />} />
-        <Route
-          path="/product/:slug"
-          element={<ProductDetails />}
-        />
-        <Route path="/cart" element={<Cart />} />
+        <Route path="/product/:slug" element={<ProductDetails />} />
+
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/cart" element={<Cart />} />
+          {/* Task 13 will add the checkout page here. */}
+        </Route>
+
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
