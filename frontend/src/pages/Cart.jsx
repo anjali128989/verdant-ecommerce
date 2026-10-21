@@ -318,10 +318,17 @@ export default function Cart() {
           >
             Continue shopping
           </Link>
+        
 
+
+        
           <p className="cart-secure-note">
             Thoughtfully chosen, made for everyday living.
           </p>
+
+          <Link to="/checkout" className="checkout-primary-button">
+  Proceed to checkout
+</Link>
         </aside>
       </div>
     </section>
