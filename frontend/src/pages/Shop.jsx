@@ -1,89 +1,159 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
+
 import api from "../api/axios";
 import { addToCart } from "../api/cartApi";
 import { setCart } from "../redux/cartSlice";
 
 export default function Shop() {
   const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const authLoading = useSelector((state) => state.auth.loading);
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [sortBy, setSortBy] = useState("featured");
   const [saleOnly, setSaleOnly] = useState(false);
   const [addingId, setAddingId] = useState(null);
 
   useEffect(() => {
-    let ignore = false;
+    let cancelled = false;
 
     async function loadProducts() {
+      setLoading(true);
+      setError("");
+
       try {
-        setLoading(true);
-        setError("");
-
         const response = await api.get("/products");
+        const data = response.data.products ?? [];
 
-        if (!ignore) {
-          setProducts(response.data.products ?? []);
+        if (!cancelled) {
+          setProducts(data);
         }
       } catch (err) {
-        if (!ignore) {
+        if (!cancelled) {
           setError(
             err.response?.data?.message ||
-              "Unable to load products. Please try again."
+              "We couldn't load the collection. Please try again."
           );
         }
       } finally {
-        if (!ignore) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadProducts();
 
     return () => {
-      ignore = true;
+      cancelled = true;
     };
   }, []);
 
-  const categories = [
-    "All",
-    ...new Set(
-      products.map((product) => product.category).filter(Boolean)
-    ),
-  ];
+  const categories = useMemo(() => {
+    const uniqueCategories = products
+      .map((product) => product.category)
+      .filter(Boolean);
 
-  const filteredProducts = products.filter((product) => {
-    const categoryMatches =
-      category === "All" || product.category === category;
+    return ["All", ...new Set(uniqueCategories)];
+  }, [products]);
 
-    const saleMatches =
-      !saleOnly ||
-      (product.discountPrice != null &&
-        product.discountPrice < product.price);
+  const filteredProducts = useMemo(() => {
+    const term = search.trim().toLowerCase();
 
-    return categoryMatches && saleMatches;
-  });
+    const result = products.filter((product) => {
+      const matchesSearch =
+        !term ||
+        [
+          product.name,
+          product.category,
+          product.description,
+        ]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(term));
+
+      const matchesCategory =
+        category === "All" || product.category === category;
+
+      const matchesSale =
+        !saleOnly ||
+        (product.discountPrice != null &&
+          product.discountPrice < product.price);
+
+      return matchesSearch && matchesCategory && matchesSale;
+    });
+
+    switch (sortBy) {
+      case "name-asc":
+        result.sort((a, b) =>
+          (a.name || "").localeCompare(b.name || "")
+        );
+        break;
+
+      case "price-low":
+        result.sort(
+          (a, b) =>
+            (a.discountPrice ?? a.price) -
+            (b.discountPrice ?? b.price)
+        );
+        break;
+
+      case "price-high":
+        result.sort(
+          (a, b) =>
+            (b.discountPrice ?? b.price) -
+            (a.discountPrice ?? a.price)
+        );
+        break;
+
+      default:
+        break;
+    }
+
+    return result;
+  }, [products, search, category, saleOnly, sortBy]);
+
+  const formatPrice = (amount) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(amount ?? 0);
+
+  function resetFilters() {
+    setSearch("");
+    setCategory("All");
+    setSortBy("featured");
+    setSaleOnly(false);
+  }
 
   async function handleAddToBag(product) {
+    if (addingId) return;
+
+    if (!user) {
+      toast.error("Please sign in before adding items to your bag.");
+      return;
+    }
+
     if (!product.stock || product.stock < 1) {
       toast.error("This product is currently sold out.");
       return;
     }
 
+    setAddingId(product._id);
+
     try {
-      setAddingId(product._id);
-
       const cart = await addToCart(product._id, 1);
-
       dispatch(setCart(cart));
       toast.success(`${product.name} added to your bag.`);
     } catch (err) {
       if (err.response?.status === 401) {
-        toast.error("Please sign in before adding items to your bag.");
+        toast.error("Your session may have expired. Please sign in again.");
       } else {
         toast.error(
           err.response?.data?.message ||
@@ -97,123 +167,206 @@ export default function Shop() {
 
   return (
     <section className="shop-page">
-      <header className="shop-heading">
-        <p className="shop-eyebrow">CURATED FOR YOUR SPACE</p>
-        <h1>Shop the collection</h1>
-        <p>Thoughtful details for a more intentional home.</p>
+      <header className="shop-hero">
+        <p className="shop-eyebrow">THE VERDANT COLLECTION</p>
+        <h1>Considered pieces. Everyday living.</h1>
+        <p>
+          Discover thoughtful details that bring warmth, calm, and
+          character to your home.
+        </p>
       </header>
 
-      <div className="shop-filters">
-        <label>
-          Category
-          <select
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="sale-filter">
+      <div className="shop-toolbar">
+        <div className="shop-search-wrap">
+          <label htmlFor="shop-search">Search collection</label>
           <input
-            type="checkbox"
-            checked={saleOnly}
-            onChange={(event) => setSaleOnly(event.target.checked)}
+            id="shop-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Try vase, planter, decor..."
           />
-          On sale
-        </label>
+        </div>
+
+        <div className="shop-sort-wrap">
+          <label htmlFor="shop-sort">Sort by</label>
+          <select
+            id="shop-sort"
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value)}
+          >
+            <option value="featured">Featured</option>
+            <option value="name-asc">Name: A to Z</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+          </select>
+        </div>
       </div>
 
-      {loading ? (
-        <p className="shop-message">Loading products...</p>
-      ) : error ? (
-        <p className="shop-message" role="alert">{error}</p>
-      ) : filteredProducts.length === 0 ? (
-        <p className="shop-message">No products match these filters.</p>
-      ) : (
-        <div className="shop-grid">
-          {filteredProducts.map((product) => {
-            const price = product.discountPrice ?? product.price;
-            const image =
-              product.images?.[0]?.url || product.image || "";
+      <div className="shop-content">
+        <aside className="shop-filters">
+          <div className="shop-filter-heading">
+            <h2>Refine</h2>
+            <button type="button" onClick={resetFilters}>
+              Reset
+            </button>
+          </div>
 
-            return (
-              <article className="shop-product" key={product._id}>
-                <Link
-                  to={`/product/${encodeURIComponent(
-                    product.slug || product._id
-                  )}`}
-                  className="shop-product-image-link"
-                  aria-label={`View ${product.name}`}
-                >
-                  {image ? (
-                    <img
-                      src={image}
-                      alt={product.name}
-                      className="shop-product-image"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="shop-product-placeholder">
-                      Image coming soon
-                    </div>
-                  )}
-                </Link>
+          <fieldset className="shop-category-filter">
+            <legend>Categories</legend>
 
-                <div className="shop-product-info">
-                  <p className="shop-product-category">
-                    {product.category}
-                  </p>
+            {categories.map((item) => (
+              <label key={item} className="shop-category-option">
+                <input
+                  type="radio"
+                  name="product-category"
+                  value={item}
+                  checked={category === item}
+                  onChange={() => setCategory(item)}
+                />
+                <span>{item}</span>
+              </label>
+            ))}
+          </fieldset>
 
-                  <h2>
+          <div className="shop-sale-filter">
+            <label>
+              <input
+                type="checkbox"
+                checked={saleOnly}
+                onChange={(event) => setSaleOnly(event.target.checked)}
+              />
+              <span>Discounted items only</span>
+            </label>
+          </div>
+        </aside>
+
+        <div className="shop-results">
+          <div className="shop-results-heading">
+            <p>
+              {loading
+                ? "Loading collection..."
+                : `${filteredProducts.length} ${
+                    filteredProducts.length === 1 ? "piece" : "pieces"
+                  }`}
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="shop-state">
+              <p>Gathering the collection...</p>
+            </div>
+          ) : error ? (
+            <div className="shop-state">
+              <h2>Something went wrong.</h2>
+              <p>{error}</p>
+              <button
+                type="button"
+                className="shop-reset-button"
+                onClick={() => window.location.reload()}
+              >
+                Try again
+              </button>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="shop-state">
+              <h2>No pieces found.</h2>
+              <p>Try another search or adjust your filters.</p>
+              <button
+                type="button"
+                className="shop-reset-button"
+                onClick={resetFilters}
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            <div className="shop-product-grid">
+              {filteredProducts.map((product) => {
+                const price = product.discountPrice ?? product.price;
+                const hasDiscount =
+                  product.discountPrice != null &&
+                  product.discountPrice < product.price;
+
+                return (
+                  <article className="shop-product-card" key={product._id}>
                     <Link
-                      to={`/product/${encodeURIComponent(
-                        product.slug || product._id
-                      )}`}
+                      to={`/product/${product.slug}`}
+                      className="shop-product-image"
                     >
-                      {product.name}
-                    </Link>
-                  </h2>
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="shop-image-fallback">
+                          <span>verdant</span>
+                        </div>
+                      )}
 
-                  <p className="shop-product-description">
-                    {product.description}
-                  </p>
+                      {hasDiscount && (
+                        <span className="shop-sale-badge">On sale</span>
+                      )}
 
-                  <p className="shop-product-price">
-                    ₹{Number(price).toLocaleString("en-IN")}
-                    {product.discountPrice != null &&
-                      product.discountPrice < product.price && (
-                        <span className="shop-old-price">
-                          ₹{Number(product.price).toLocaleString("en-IN")}
+                      {(!product.stock || product.stock < 1) && (
+                        <span className="shop-sold-out-badge">
+                          Sold out
                         </span>
                       )}
-                  </p>
+                    </Link>
 
-                  <button
-                    type="button"
-                    className="add-to-cart-button"
-                    disabled={
-                      !product.stock || product.stock < 1 ||
-                      addingId === product._id
-                    }
-                    onClick={() => handleAddToBag(product)}
-                  >
-                    {!product.stock || product.stock < 1
-                      ? "Sold out"
-                      : addingId === product._id
-                        ? "Adding..."
-                        : "Add to bag"}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+                    <div className="shop-product-info">
+                      {product.category && (
+                        <p className="shop-product-category">
+                          {product.category}
+                        </p>
+                      )}
+
+                      <Link
+                        to={`/product/${product.slug}`}
+                        className="shop-product-name"
+                      >
+                        {product.name}
+                      </Link>
+
+                      <div className="shop-product-price">
+                        <span>{formatPrice(price)}</span>
+                        {hasDiscount && (
+                          <span className="shop-original-price">
+                            {formatPrice(product.price)}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="shop-add-button"
+                        disabled={
+                          !product.stock ||
+                          product.stock < 1 ||
+                          addingId === product._id ||
+                          authLoading
+                        }
+                        onClick={() => handleAddToBag(product)}
+                      >
+                        {!product.stock || product.stock < 1
+                          ? "Sold out"
+                          : addingId === product._id
+                            ? "Adding..."
+                            : authLoading
+                              ? "Loading..."
+                              : "Add to bag"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </section>
   );
 }
