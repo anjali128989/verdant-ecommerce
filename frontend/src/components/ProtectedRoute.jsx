@@ -1,4 +1,3 @@
-
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
@@ -9,7 +8,11 @@ export default function ProtectedRoute() {
 
   if (loading) {
     return (
-      <div className="auth-checking" role="status" aria-live="polite">
+      <div
+        className="auth-checking"
+        role="status"
+        aria-live="polite"
+      >
         <span className="auth-spinner auth-spinner-dark" />
         <p>Checking your session...</p>
       </div>
