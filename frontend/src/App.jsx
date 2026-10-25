@@ -136,7 +136,7 @@ export default function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
 <Route path="/order-success/:orderId" element={<OrderSuccess />} />
-  <Route path="/orders" element={<MyOrders />} />
+  <Route path="/my-orders" element={<MyOrders />} />
           {/* Task 13 will add the checkout page here. */}
         </Route>
 
