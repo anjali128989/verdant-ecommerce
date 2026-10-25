@@ -1,3 +1,4 @@
+
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const {
@@ -15,10 +16,12 @@ const createToken = (userId) => {
   });
 };
 
+// Cookie settings for local development and production.
 const cookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite:
+    process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: "/",
 });
@@ -143,7 +146,8 @@ const logout = (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite:
+      process.env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
   });
 
@@ -156,7 +160,7 @@ const logout = (req, res) => {
 // GET /api/auth/me
 const getMe = async (req, res, next) => {
   try {
-    // The authentication middleware will attach req.user.
+    // The authentication middleware attaches req.user.
     if (!req.user) {
       return res.status(401).json({
         success: false,
