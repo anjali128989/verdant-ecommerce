@@ -7,7 +7,20 @@ export const getProducts = async (params = {}) => {
   return response.data;
 };
 
-// Create a product. The backend currently expects image URLs and public IDs.
+// Upload one image to Cloudinary through the protected backend endpoint.
+export const uploadProductImage = async (file) => {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await api.post(
+    "/uploads/product-image",
+    formData
+  );
+
+  return response.data;
+};
+
+// Create a product using uploaded Cloudinary image details.
 export const createProduct = async (productData) => {
   const response = await api.post("/products", productData);
   return response.data;

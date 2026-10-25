@@ -3,6 +3,7 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
+
 import { logoutUser } from "../api/authApi";
 import { clearUser } from "../redux/authSlice";
 import { clearCart } from "../redux/cartSlice";
@@ -27,10 +28,13 @@ export default function Navbar() {
   async function handleLogout() {
     try {
       await logoutUser();
+
       dispatch(clearUser());
       dispatch(clearCart());
+
       closeMenu();
       navigate("/");
+
       toast.success("You have signed out successfully.");
     } catch (error) {
       toast.error(
@@ -63,7 +67,10 @@ export default function Navbar() {
         </NavLink>
 
         {/* Desktop navigation */}
-        <nav className="site-desktop-nav" aria-label="Main navigation">
+        <nav
+          className="site-desktop-nav"
+          aria-label="Main navigation"
+        >
           <NavLink to="/" end className={linkClass}>
             Home
           </NavLink>
@@ -90,6 +97,10 @@ export default function Navbar() {
 
               <NavLink to="/admin/orders" className={linkClass}>
                 Manage Orders
+              </NavLink>
+
+              <NavLink to="/admin/users" className={linkClass}>
+                Manage Users
               </NavLink>
             </>
           )}
@@ -131,7 +142,9 @@ export default function Navbar() {
             <NavLink
               to="/cart"
               className={({ isActive }) =>
-                `site-cart-link${isActive ? " site-cart-link-active" : ""}`
+                `site-cart-link${
+                  isActive ? " site-cart-link-active" : ""
+                }`
               }
               onClick={closeMenu}
               aria-label={`Shopping bag, ${itemCount} items`}
@@ -172,7 +185,9 @@ export default function Navbar() {
             className="site-mobile-toggle"
             onClick={() => setMenuOpen((open) => !open)}
             aria-label={
-              menuOpen ? "Close navigation menu" : "Open navigation menu"
+              menuOpen
+                ? "Close navigation menu"
+                : "Open navigation menu"
             }
             aria-expanded={menuOpen}
             aria-controls="site-mobile-menu"
@@ -200,11 +215,20 @@ export default function Navbar() {
         aria-hidden={!menuOpen}
         inert={!menuOpen}
       >
-        <NavLink to="/" end className={linkClass} onClick={closeMenu}>
+        <NavLink
+          to="/"
+          end
+          className={linkClass}
+          onClick={closeMenu}
+        >
           Home
         </NavLink>
 
-        <NavLink to="/shop" className={linkClass} onClick={closeMenu}>
+        <NavLink
+          to="/shop"
+          className={linkClass}
+          onClick={closeMenu}
+        >
           Shop all
         </NavLink>
 
@@ -244,11 +268,23 @@ export default function Navbar() {
             >
               Manage Orders
             </NavLink>
+
+            <NavLink
+              to="/admin/users"
+              className={linkClass}
+              onClick={closeMenu}
+            >
+              Manage Users
+            </NavLink>
           </>
         )}
 
         {!isAdmin && (
-          <NavLink to="/cart" className={linkClass} onClick={closeMenu}>
+          <NavLink
+            to="/cart"
+            className={linkClass}
+            onClick={closeMenu}
+          >
             Shopping bag ({itemCount})
           </NavLink>
         )}

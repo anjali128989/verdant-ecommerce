@@ -25,3 +25,18 @@ Thumbs.db
 # Coverage and temporary files
 coverage/
 *.tmp
+
+# Verdant local secrets and dependencies
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/node_modules/
+
+# Temporary Cloudinary diagnostics
+backend/cloudinary-test.jpg
+backend/test-cloudinary.js
+backend/test-cloudinary-http.js
+
+# Local password reset utility
+backend/resetAdminPassword.js

@@ -38,10 +38,23 @@ export default function Home() {
         const allProducts = response.data.products ?? [];
 
         if (!cancelled) {
-          setProducts(allProducts.slice(0, 4));
+          const featuredProducts = allProducts.filter(
+            (product) => product.featured === true
+          );
+
+          const otherProducts = allProducts.filter(
+            (product) => product.featured !== true
+          );
+
+          // Featured products appear first; fill remaining slots
+          // with other products when fewer than four are featured.
+          setProducts(
+            [...featuredProducts, ...otherProducts].slice(0, 4)
+          );
         }
       } catch (error) {
         if (!cancelled) {
+          console.error("Failed to load home products:", error);
           setLoadError(true);
         }
       } finally {
@@ -57,6 +70,25 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  // Supports images stored as objects or strings, plus legacy product.image.
+  function getProductImage(product) {
+    const images = Array.isArray(product.images)
+      ? product.images
+      : [];
+
+    const firstImage = images.find(
+      (image) =>
+        (typeof image === "string" && image.trim()) ||
+        (typeof image?.url === "string" && image.url.trim())
+    );
+
+    if (typeof firstImage === "string") {
+      return firstImage;
+    }
+
+    return firstImage?.url || product.image || "";
+  }
 
   const formatPrice = (amount) =>
     new Intl.NumberFormat("en-IN", {
@@ -86,7 +118,8 @@ export default function Home() {
 
           <div className="home-hero-actions">
             <Link to="/shop" className="home-primary-button">
-              Explore the collection <span aria-hidden="true">↗</span>
+              Explore the collection{" "}
+              <span aria-hidden="true">↗</span>
             </Link>
 
             <a href="#home-story" className="home-text-link">
@@ -96,20 +129,19 @@ export default function Home() {
 
           <div className="home-hero-caption">
             <span className="home-caption-line" />
-            <span>Thoughtfully curated for everyday living</span>
+            <span>
+              Thoughtfully curated for everyday living
+            </span>
           </div>
         </div>
 
         <div className="home-hero-art" aria-hidden="true">
           <div className="home-art-orbit home-art-orbit-one" />
           <div className="home-art-orbit home-art-orbit-two" />
-
           <div className="home-art-sun" />
-
           <div className="home-art-leaf home-art-leaf-one" />
           <div className="home-art-leaf home-art-leaf-two" />
           <div className="home-art-leaf home-art-leaf-three" />
-
           <div className="home-art-stem" />
 
           <div className="home-art-vase">
@@ -127,12 +159,16 @@ export default function Home() {
           <span className="home-value-symbol">✳</span>
           <p>Thoughtful design</p>
         </div>
+
         <span className="home-value-divider" />
+
         <div>
           <span className="home-value-symbol">⌁</span>
           <p>Nature-inspired living</p>
         </div>
+
         <span className="home-value-divider" />
+
         <div>
           <span className="home-value-symbol">○</span>
           <p>Everyday essentials</p>
@@ -155,15 +191,19 @@ export default function Home() {
           {categories.map((category, index) => (
             <Link
               key={category.name}
-              to="/shop"
+              to={`/shop?category=${encodeURIComponent(category.search)}`}
               className={`home-category-card ${category.className}`}
             >
               <div className="home-category-art" aria-hidden="true">
                 <span className="home-category-number">
                   0{index + 1}
                 </span>
+
                 <div className="home-category-shape" />
-                <span className="home-category-art-name">verdant</span>
+
+                <span className="home-category-art-name">
+                  verdant
+                </span>
               </div>
 
               <div className="home-category-info">
@@ -171,7 +211,11 @@ export default function Home() {
                   <h3>{category.name}</h3>
                   <p>{category.description}</p>
                 </div>
-                <span className="home-category-arrow" aria-hidden="true">
+
+                <span
+                  className="home-category-arrow"
+                  aria-hidden="true"
+                >
                   ↗
                 </span>
               </div>
@@ -185,6 +229,7 @@ export default function Home() {
           <div>
             <p className="home-eyebrow">THE CONSIDERED EDIT</p>
             <h2>Pieces to live with.</h2>
+
             <p className="home-section-description">
               Discover favourites selected to bring a little more
               intention to your everyday spaces.
@@ -203,6 +248,7 @@ export default function Home() {
         ) : loadError ? (
           <div className="home-featured-state">
             <p>Our collection couldn't load right now.</p>
+
             <Link to="/shop" className="home-text-link">
               Explore the shop instead →
             </Link>
@@ -210,6 +256,7 @@ export default function Home() {
         ) : products.length === 0 ? (
           <div className="home-featured-state">
             <p>Our next collection is taking shape.</p>
+
             <Link to="/shop" className="home-text-link">
               Visit the shop →
             </Link>
@@ -217,10 +264,14 @@ export default function Home() {
         ) : (
           <div className="home-featured-grid">
             {products.map((product) => {
-              const price = product.discountPrice ?? product.price;
+              const price =
+                product.discountPrice ?? product.price;
+
               const discounted =
                 product.discountPrice != null &&
                 product.discountPrice < product.price;
+
+              const imageUrl = getProductImage(product);
 
               return (
                 <article
@@ -231,17 +282,34 @@ export default function Home() {
                     to={`/product/${product.slug}`}
                     className="home-featured-image"
                   >
-                    {product.image ? (
+                    {imageUrl ? (
                       <img
-                        src={product.image}
+                        src={imageUrl}
                         alt={product.name}
                         loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+
+                          const fallback =
+                            event.currentTarget.parentElement?.querySelector(
+                              ".home-featured-placeholder"
+                            );
+
+                          if (fallback) {
+                            fallback.style.display = "flex";
+                          }
+                        }}
                       />
-                    ) : (
-                      <div className="home-featured-placeholder">
-                        <span>verdant</span>
-                      </div>
-                    )}
+                    ) : null}
+
+                    <div
+                      className="home-featured-placeholder"
+                      style={{
+                        display: imageUrl ? "none" : "flex",
+                      }}
+                    >
+                      <span>verdant</span>
+                    </div>
 
                     {discounted && (
                       <span className="home-featured-badge">
@@ -253,6 +321,7 @@ export default function Home() {
                   <div className="home-featured-info">
                     <div>
                       <p>{product.category || "The collection"}</p>
+
                       <Link to={`/product/${product.slug}`}>
                         {product.name}
                       </Link>
@@ -260,6 +329,7 @@ export default function Home() {
 
                     <div className="home-featured-prices">
                       <span>{formatPrice(price)}</span>
+
                       {discounted && (
                         <span className="home-featured-old-price">
                           {formatPrice(product.price)}
@@ -285,18 +355,22 @@ export default function Home() {
 
         <div className="home-story-content">
           <p className="home-eyebrow">A LITTLE MORE MEANING</p>
+
           <h2>
             A home isn't
             <br />
             made in a day.
           </h2>
+
           <p>
             It comes together slowly. A favourite object here, a
             calming corner there, and the small things that make
             everyday life feel special.
           </p>
+
           <Link to="/shop" className="home-primary-button">
-            Find your next favourite <span aria-hidden="true">↗</span>
+            Find your next favourite{" "}
+            <span aria-hidden="true">↗</span>
           </Link>
         </div>
       </section>
@@ -305,6 +379,7 @@ export default function Home() {
         <p className="home-eyebrow">YOUR SPACE, YOUR STORY</p>
         <h2>Let your home grow with you.</h2>
         <p>Explore pieces that feel right, today and every day.</p>
+
         <Link to="/shop" className="home-primary-button">
           Discover verdant <span aria-hidden="true">↗</span>
         </Link>

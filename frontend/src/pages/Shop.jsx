@@ -1,6 +1,6 @@
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 
@@ -10,6 +10,7 @@ import { setCart } from "../redux/cartSlice";
 
 export default function Shop() {
   const dispatch = useDispatch();
+
   const user = useSelector((state) => state.auth.user);
   const authLoading = useSelector((state) => state.auth.loading);
 
@@ -19,6 +20,8 @@ export default function Shop() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sortBy, setSortBy] = useState("featured");
+  const [searchParams] = useSearchParams();
+const requestedCategory = searchParams.get("category");
   const [saleOnly, setSaleOnly] = useState(false);
   const [addingId, setAddingId] = useState(null);
 
@@ -44,7 +47,9 @@ export default function Shop() {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -54,6 +59,37 @@ export default function Shop() {
       cancelled = true;
     };
   }, []);
+
+
+
+  useEffect(() => {
+  if (!requestedCategory) {
+    setCategory("All");
+    return;
+  }
+
+  const matchingCategory = products.some(
+    (product) => product.category === requestedCategory
+  );
+
+  setCategory(matchingCategory ? requestedCategory : "All");
+}, [requestedCategory, products]);
+  // Supports both the current images array and the legacy image field.
+  function getProductImage(product) {
+    const images = Array.isArray(product.images)
+      ? product.images
+      : [];
+
+    const firstImage = images.find(
+      (image) => typeof image === "string" || image?.url
+    );
+
+    if (typeof firstImage === "string") {
+      return firstImage;
+    }
+
+    return firstImage?.url || product.image || "";
+  }
 
   const categories = useMemo(() => {
     const uniqueCategories = products
@@ -75,17 +111,24 @@ export default function Shop() {
           product.description,
         ]
           .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(term));
+          .some((value) =>
+            value.toLowerCase().includes(term)
+          );
 
       const matchesCategory =
-        category === "All" || product.category === category;
+        category === "All" ||
+        product.category === category;
 
       const matchesSale =
         !saleOnly ||
         (product.discountPrice != null &&
           product.discountPrice < product.price);
 
-      return matchesSearch && matchesCategory && matchesSale;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesSale
+      );
     });
 
     switch (sortBy) {
@@ -136,7 +179,9 @@ export default function Shop() {
     if (addingId) return;
 
     if (!user) {
-      toast.error("Please sign in before adding items to your bag.");
+      toast.error(
+        "Please sign in before adding items to your bag."
+      );
       return;
     }
 
@@ -153,7 +198,9 @@ export default function Shop() {
       toast.success(`${product.name} added to your bag.`);
     } catch (err) {
       if (err.response?.status === 401) {
-        toast.error("Your session may have expired. Please sign in again.");
+        toast.error(
+          "Your session may have expired. Please sign in again."
+        );
       } else {
         toast.error(
           err.response?.data?.message ||
@@ -168,37 +215,53 @@ export default function Shop() {
   return (
     <section className="shop-page">
       <header className="shop-hero">
-        <p className="shop-eyebrow">THE VERDANT COLLECTION</p>
+        <p className="shop-eyebrow">
+          THE VERDANT COLLECTION
+        </p>
+
         <h1>Considered pieces. Everyday living.</h1>
+
         <p>
-          Discover thoughtful details that bring warmth, calm, and
-          character to your home.
+          Discover thoughtful details that bring warmth,
+          calm, and character to your home.
         </p>
       </header>
 
       <div className="shop-toolbar">
         <div className="shop-search-wrap">
-          <label htmlFor="shop-search">Search collection</label>
+          <label htmlFor="shop-search">
+            Search collection
+          </label>
+
           <input
             id="shop-search"
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
             placeholder="Try vase, planter, decor..."
           />
         </div>
 
         <div className="shop-sort-wrap">
           <label htmlFor="shop-sort">Sort by</label>
+
           <select
             id="shop-sort"
             value={sortBy}
-            onChange={(event) => setSortBy(event.target.value)}
+            onChange={(event) =>
+              setSortBy(event.target.value)
+            }
           >
             <option value="featured">Featured</option>
             <option value="name-asc">Name: A to Z</option>
-            <option value="price-low">Price: Low to High</option>
-            <option value="price-high">Price: High to Low</option>
+            <option value="price-low">
+              Price: Low to High
+            </option>
+            <option value="price-high">
+              Price: High to Low
+            </option>
           </select>
         </div>
       </div>
@@ -207,6 +270,7 @@ export default function Shop() {
         <aside className="shop-filters">
           <div className="shop-filter-heading">
             <h2>Refine</h2>
+
             <button type="button" onClick={resetFilters}>
               Reset
             </button>
@@ -216,7 +280,10 @@ export default function Shop() {
             <legend>Categories</legend>
 
             {categories.map((item) => (
-              <label key={item} className="shop-category-option">
+              <label
+                key={item}
+                className="shop-category-option"
+              >
                 <input
                   type="radio"
                   name="product-category"
@@ -224,6 +291,7 @@ export default function Shop() {
                   checked={category === item}
                   onChange={() => setCategory(item)}
                 />
+
                 <span>{item}</span>
               </label>
             ))}
@@ -234,8 +302,11 @@ export default function Shop() {
               <input
                 type="checkbox"
                 checked={saleOnly}
-                onChange={(event) => setSaleOnly(event.target.checked)}
+                onChange={(event) =>
+                  setSaleOnly(event.target.checked)
+                }
               />
+
               <span>Discounted items only</span>
             </label>
           </div>
@@ -247,7 +318,9 @@ export default function Shop() {
               {loading
                 ? "Loading collection..."
                 : `${filteredProducts.length} ${
-                    filteredProducts.length === 1 ? "piece" : "pieces"
+                    filteredProducts.length === 1
+                      ? "piece"
+                      : "pieces"
                   }`}
             </p>
           </div>
@@ -260,6 +333,7 @@ export default function Shop() {
             <div className="shop-state">
               <h2>Something went wrong.</h2>
               <p>{error}</p>
+
               <button
                 type="button"
                 className="shop-reset-button"
@@ -271,7 +345,10 @@ export default function Shop() {
           ) : filteredProducts.length === 0 ? (
             <div className="shop-state">
               <h2>No pieces found.</h2>
-              <p>Try another search or adjust your filters.</p>
+              <p>
+                Try another search or adjust your filters.
+              </p>
+
               <button
                 type="button"
                 className="shop-reset-button"
@@ -283,34 +360,63 @@ export default function Shop() {
           ) : (
             <div className="shop-product-grid">
               {filteredProducts.map((product) => {
-                const price = product.discountPrice ?? product.price;
+                const price =
+                  product.discountPrice ?? product.price;
+
                 const hasDiscount =
                   product.discountPrice != null &&
                   product.discountPrice < product.price;
 
+                const imageUrl = getProductImage(product);
+
                 return (
-                  <article className="shop-product-card" key={product._id}>
+                  <article
+                    className="shop-product-card"
+                    key={product._id}
+                  >
                     <Link
                       to={`/product/${product.slug}`}
                       className="shop-product-image"
                     >
-                      {product.image ? (
+                      {imageUrl ? (
                         <img
-                          src={product.image}
+                          src={imageUrl}
                           alt={product.name}
                           loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.style.display =
+                              "none";
+
+                            const fallback =
+                              event.currentTarget.parentElement
+                                ?.querySelector(
+                                  ".shop-image-fallback"
+                                );
+
+                            if (fallback) {
+                              fallback.style.display = "flex";
+                            }
+                          }}
                         />
-                      ) : (
-                        <div className="shop-image-fallback">
-                          <span>verdant</span>
-                        </div>
-                      )}
+                      ) : null}
+
+                      <div
+                        className="shop-image-fallback"
+                        style={{
+                          display: imageUrl ? "none" : "flex",
+                        }}
+                      >
+                        <span>verdant</span>
+                      </div>
 
                       {hasDiscount && (
-                        <span className="shop-sale-badge">On sale</span>
+                        <span className="shop-sale-badge">
+                          On sale
+                        </span>
                       )}
 
-                      {(!product.stock || product.stock < 1) && (
+                      {(!product.stock ||
+                        product.stock < 1) && (
                         <span className="shop-sold-out-badge">
                           Sold out
                         </span>
@@ -333,6 +439,7 @@ export default function Shop() {
 
                       <div className="shop-product-price">
                         <span>{formatPrice(price)}</span>
+
                         {hasDiscount && (
                           <span className="shop-original-price">
                             {formatPrice(product.price)}
@@ -349,9 +456,12 @@ export default function Shop() {
                           addingId === product._id ||
                           authLoading
                         }
-                        onClick={() => handleAddToBag(product)}
+                        onClick={() =>
+                          handleAddToBag(product)
+                        }
                       >
-                        {!product.stock || product.stock < 1
+                        {!product.stock ||
+                        product.stock < 1
                           ? "Sold out"
                           : addingId === product._id
                             ? "Adding..."

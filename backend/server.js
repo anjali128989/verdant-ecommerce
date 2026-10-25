@@ -10,6 +10,8 @@ const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
+const adminUserRoutes = require("./routes/adminUserRoutes");
 
 const connectDB = require("./config/db");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
@@ -41,6 +43,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/uploads", uploadRoutes);
+app.use("/api/admin/users", adminUserRoutes);
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,

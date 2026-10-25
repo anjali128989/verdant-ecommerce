@@ -20,6 +20,7 @@ import AdminRoute from "./components/AdminRoute";
 
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminUsers from "./pages/admin/AdminUsers";
 import NotFound from "./pages/NotFound";
 
 import { getCurrentUser } from "./api/authApi";
@@ -127,6 +128,7 @@ export default function App() {
   <Route path="/admin" element={<AdminDashboard />} />
   <Route path="/admin/orders" element={<AdminOrders />} />
   <Route path="/admin/products" element={<AdminProducts />} />
+   <Route path="/admin/users" element={<AdminUsers />} />
   
 </Route>
 

@@ -6,6 +6,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+   uploadProductImage,
 } from "../../api/productApi";
 import "./AdminProducts.css";
 
@@ -48,6 +49,7 @@ export default function AdminProducts() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -158,6 +160,54 @@ export default function AdminProducts() {
       images: current.images.filter((_, i) => i !== index),
     }));
   }
+
+
+
+async function handleImageUpload(event, index) {
+  const file = event.target.files?.[0];
+
+  // Allow the same file to be selected again after an error.
+  event.target.value = "";
+
+  if (!file) return;
+
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    toast.error("Choose a JPG, PNG, or WebP image.");
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error("The image must be 5 MB or smaller.");
+    return;
+  }
+
+  setUploadingImage(true);
+
+  try {
+    const data = await uploadProductImage(file);
+
+    if (!data.success || !data.image?.url || !data.image?.public_id) {
+      throw new Error("The server did not return valid image details.");
+    }
+
+    updateImage(index, "url", data.image.url);
+    updateImage(index, "public_id", data.image.public_id);
+
+    toast.success("Image uploaded successfully.");
+  } catch (error) {
+    toast.error(getErrorMessage(error));
+  } finally {
+    setUploadingImage(false);
+  }
+}
+
+
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -420,25 +470,73 @@ export default function AdminProducts() {
                 required
               />
             </label>
-          </div>
+          </div>        
+<div className="admin-product-images-heading">
+  <div>
+    <h3>Product images</h3>
+    <p>
+      Select JPG, PNG, or WebP images up to 5 MB each.
+      Images are uploaded securely to Cloudinary.
+    </p>
+  </div>
 
-          <div className="admin-product-images-heading">
-            <div>
-              <h3>Product images</h3>
-              <p>
-                Enter an image URL and its Cloudinary public ID.
-                Upload functionality will be added separately.
-              </p>
-            </div>
+  <button
+    type="button"
+    className="admin-products-secondary"
+    onClick={addImageField}
+    disabled={uploadingImage || saving || form.images.length >= 8}
+  >
+    + Add image
+  </button>
+</div>
 
-            <button
-              type="button"
-              className="admin-products-secondary"
-              onClick={addImageField}
-            >
-              + Add image
-            </button>
+{form.images.map((image, index) => (
+  <div className="admin-product-image-row" key={index}>
+    <div className="admin-product-upload-control">
+      <label htmlFor={`product-image-${index}`}>
+        Image {index + 1} *
+      </label>
+
+      <input
+        id={`product-image-${index}`}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(event) => handleImageUpload(event, index)}
+        disabled={uploadingImage || saving}
+        required={!image.url || !image.public_id}
+      />
+
+      {uploadingImage && (
+        <p role="status">Uploading image...</p>
+      )}
+
+      {image.url && image.public_id && (
+        <div className="admin-product-upload-preview">
+          <img
+            src={image.url}
+            alt={`Preview of product image ${index + 1}`}
+          />
+
+          <div>
+            <p>Upload complete</p>
+            <small>{image.public_id}</small>
           </div>
+        </div>
+      )}
+    </div>
+
+    <button
+      type="button"
+      className="admin-products-danger-outline"
+      onClick={() => removeImageField(index)}
+      disabled={uploadingImage || saving || form.images.length === 1}
+      aria-label={`Remove image ${index + 1}`}
+    >
+      Remove
+    </button>
+  </div>
+))}
+
 
           {form.images.map((image, index) => (
             <div className="admin-product-image-row" key={index}>
